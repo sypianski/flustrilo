@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wrapper: load ~/.config/flustrilo/env, then toggle.
+set -a
+. "${XDG_CONFIG_HOME:-$HOME/.config}/flustrilo/env"
+set +a
+exec python3 "$HOME/.local/bin/flustrilo.py" toggle

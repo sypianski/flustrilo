@@ -1,0 +1,12 @@
+# Local config — never check in real endpoints, IPs, or API keys.
+vps/.env
+pi/env
+**/.env
+
+# Python noise
+__pycache__/
+*.pyc
+
+# Editor
+*.swp
+.DS_Store

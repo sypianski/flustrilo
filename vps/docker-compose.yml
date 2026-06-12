@@ -1,0 +1,33 @@
+# speaches — OpenAI-compatible Whisper server.
+#
+# Bring up:  cp .env.example .env && $EDITOR .env && docker compose up -d
+# Logs:      docker compose logs -f
+# First transcription auto-downloads the model; it lands in the named
+# volume `hf-cache` and survives container restarts (run once online to
+# pre-warm for offline use).
+#
+# Bind defaults to 127.0.0.1 (loopback only). For remote clients, set
+# BIND_ADDR to a Tailscale / WireGuard / private-network IP — never
+# 0.0.0.0 unless the host is firewalled elsewhere.
+
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:${IMAGE_TAG:-latest-cpu}
+    container_name: speaches
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${PORT:-8000}:8000"
+    environment:
+      # Keep the loaded model warm so each request skips cold-load.
+      - WHISPER__TTL=-1
+      - WHISPER__MODEL=${WHISPER_MODEL:-Systran/faster-whisper-small}
+      # int8 on CPU (the model ships float16 → without this it's silently
+      # upcast to float32, ~10x slower). Use float16 on CUDA.
+      - WHISPER__COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER__CPU_THREADS=${WHISPER_CPU_THREADS:-4}
+      - WHISPER__USE_BATCHED_MODE=true
+    volumes:
+      - hf-cache:/home/ubuntu/.cache/huggingface
+
+volumes:
+  hf-cache:
