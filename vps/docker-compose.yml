@@ -1,30 +1,29 @@
-# speaches — OpenAI-compatible Whisper server.
+# Hetzner VPS — speaches (OpenAI-compatible Whisper server).
+# Bind to Tailscale IP only; never expose to public internet.
 #
-# Bring up:  cp .env.example .env && $EDITOR .env && docker compose up -d
+# Bring up:  docker compose up -d
 # Logs:      docker compose logs -f
-# First transcription auto-downloads the model; it lands in the named
-# volume `hf-cache` and survives container restarts (run once online to
-# pre-warm for offline use).
-#
-# Bind defaults to 127.0.0.1 (loopback only). For remote clients, set
-# BIND_ADDR to a Tailscale / WireGuard / private-network IP — never
-# 0.0.0.0 unless the host is firewalled elsewhere.
-
+# First transcription auto-downloads the model (large-v3 ~3GB).
 services:
   speaches:
-    image: ghcr.io/speaches-ai/speaches:${IMAGE_TAG:-latest-cpu}
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
     container_name: speaches
     restart: unless-stopped
+    # Listen on Tailscale interface only. Replace 100.x.y.z with this VPS's
+    # `tailscale ip -4`. Falls back to 127.0.0.1 if you tunnel via SSH instead.
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:${PORT:-8000}:8000"
+      - "100.84.239.34:8000:8000"   # <-- EDIT to your VPS tailscale IP
     environment:
-      # Keep the loaded model warm so each request skips cold-load.
+      # Keep the Polish model warm so each dictation skips cold-load.
       - WHISPER__TTL=-1
-      - WHISPER__MODEL=${WHISPER_MODEL:-Systran/faster-whisper-small}
-      # int8 on CPU (the model ships float16 → without this it's silently
-      # upcast to float32, ~10x slower). Use float16 on CUDA.
-      - WHISPER__COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
-      - WHISPER__CPU_THREADS=${WHISPER_CPU_THREADS:-4}
+      # small int8 = best speed/Polish tradeoff on this ARM CPU (turbo was 12s
+      # AND worse Polish; base is 1s but can't do Polish). Swap to -medium for
+      # higher accuracy at ~2x the latency.
+      - WHISPER__MODEL=Systran/faster-whisper-small
+      # int8 (model ships float16 → was silently upcast to float32, ~10x
+      # slower). int8 + all cores + batched VAD pipeline.
+      - WHISPER__COMPUTE_TYPE=int8
+      - WHISPER__CPU_THREADS=16
       - WHISPER__USE_BATCHED_MODE=true
     volumes:
       - hf-cache:/home/ubuntu/.cache/huggingface
